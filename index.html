@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Robô LED Azul</title>
+
+<style>
+:root{
+  --bg1:#030b18;
+  --bg2:#000409;
+  --led:#4fd2ff;
+  --ledStrong:#9fe9ff;
+  --glow:rgba(60,200,255,.7);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  min-height:100vh;
+  background: radial-gradient(1000px 600px at 50% 20%, #07233d, #01060d);
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding-top:20px;
+  overflow:hidden;
+  font-family:system-ui;
+}
+
+/* Container fixo no topo */
+.robot{
+  width:95vw;
+  max-width:480px;
+  height:38vh;
+  min-height:200px;
+  position:relative;
+  background:linear-gradient(#061a30,#020911);
+  border-radius:20px;
+  box-shadow:0 20px 60px rgba(0,0,0,.7);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Faixa */
+.band{
+  width:90%;
+  height:35%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  position:relative;
+}
+
+/* Olhos LED */
+.eye{
+  width:34%;
+  height:100%;
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:6px;
+}
+
+.dot{
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:50%;
+  background:#072a45;
+  box-shadow:0 0 4px #000;
+  transition:.1s;
+}
+
+.dot.on{
+  background:var(--ledStrong);
+  box-shadow:0 0 12px var(--glow);
+}
+
+/* Boca */
+.mouth{
+  position:absolute;
+  bottom:12%;
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
+
+.mouthDot{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#072a45;
+  transition:.1s;
+}
+
+.mouthDot.on{
+  background:var(--led);
+  box-shadow:0 0 14px var(--glow);
+}
+
+/* Responsivo */
+@media (max-width:480px){
+  .mouthDot{ width:10px;height:10px; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="robot">
+  <div class="band">
+    <div class="eye" id="leftEye"></div>
+    <div class="eye" id="rightEye"></div>
+  </div>
+  <div class="mouth" id="mouth"></div>
+</div>
+
+<script>
+let audioCtx, analyser, data, stream;
+let smooth = 0;
+
+const leftEye = document.getElementById("leftEye");
+const rightEye = document.getElementById("rightEye");
+const mouth = document.getElementById("mouth");
+
+/* Criar olhos */
+function createEye(eye){
+  for(let i=0;i<36;i++){
+    const d=document.createElement("div");
+    d.className="dot on";
+    eye.appendChild(d);
+  }
+}
+createEye(leftEye);
+createEye(rightEye);
+
+/* Criar boca */
+for(let i=0;i<9;i++){
+  const d=document.createElement("div");
+  d.className="mouthDot";
+  mouth.appendChild(d);
+}
+
+/* Piscar */
+setInterval(()=>{
+  const dots=[...leftEye.children,...rightEye.children];
+  dots.forEach(d=>d.classList.remove("on"));
+  setTimeout(()=>{
+    dots.forEach(d=>d.classList.add("on"));
+  },120);
+},4500);
+
+/* Áudio */
+async function start(){
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  const source=audioCtx.createMediaStreamSource(stream);
+  analyser=audioCtx.createAnalyser();
+  analyser.fftSize=512;
+  data=new Uint8Array(analyser.fftSize);
+  source.connect(analyser);
+  loop();
+}
+start();
+
+function loop(){
+  analyser.getByteTimeDomainData(data);
+  let sum=0;
+  for(let i=0;i<data.length;i++){
+    const n=(data[i]-128)/128;
+    sum+=n*n;
+  }
+  let level=Math.sqrt(sum/data.length)*3;
+  smooth=smooth+(level-smooth)*0.2;
+
+  const activeDots=Math.floor(smooth*9);
+  [...mouth.children].forEach((d,i)=>{
+    if(i<activeDots){
+      d.classList.add("on");
+    }else{
+      d.classList.remove("on");
+    }
+  });
+
+  requestAnimationFrame(loop);
+}
+</script>
+
+</body>
+</html>
